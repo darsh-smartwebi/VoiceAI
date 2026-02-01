@@ -3,7 +3,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const fs = require("fs");
 const { parse } = require("csv-parse/sync");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 dotenv.config();
 
@@ -13,8 +13,6 @@ const app = express();
 // 0) Middleware (Smartwebi-proof)
 // ==============================
 app.use(cors());
-
-// Accept JSON even if client sends wrong/missing content-type
 app.use(
   express.json({
     limit: "1mb",
@@ -30,7 +28,10 @@ let PDF_TABLE = [];
 
 function loadPdfTableOnce() {
   const csv = fs.readFileSync("./grade1.csv", "utf8");
-  const records = parse(csv, { columns: true, skip_empty_lines: true });
+  const records = parse(csv, {
+    columns: true,
+    skip_empty_lines: true,
+  });
 
   PDF_TABLE = records.map((r) => ({
     keyword: (r.keyword || "").trim().toLowerCase(),
@@ -48,7 +49,7 @@ function findPdfByKeyword(keyword) {
 
 loadPdfTableOnce();
 
-// Optional: reload CSV without restarting
+// Reload CSV without restart (optional)
 app.get("/reload", (req, res) => {
   try {
     loadPdfTableOnce();
@@ -59,37 +60,9 @@ app.get("/reload", (req, res) => {
 });
 
 // ==============================
-// 2) Email transporter (465/587 safe)
+// 2) Resend Client
 // ==============================
-const smtpPort = Number(process.env.SMTP_PORT || 587);
-const smtpSecure = smtpPort === 465;
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: smtpPort,
-  secure: smtpSecure, // true for 465, false for 587
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-
-  // prevent hanging forever
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 15000,
-
-  // force STARTTLS on 587
-  ...(smtpSecure ? {} : { requireTLS: true }),
-});
-
-// verify SMTP at startup
-transporter.verify((err) => {
-  if (err) {
-    console.log("❌ SMTP verify failed:", err.message);
-  } else {
-    console.log("✅ SMTP is ready");
-  }
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ==============================
 // 3) MCP discovery endpoint
@@ -117,36 +90,63 @@ app.get("/mcp", (req, res) => {
 });
 
 // ==============================
-// 4) ONE tool endpoint (Smartwebi-proof payload parsing)
+// 4) MCP tool endpoint (FIXED)
 // ==============================
 app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
   try {
-    // Debug logs (check Render logs)
     console.log("----- INCOMING REQUEST -----");
     console.log("HEADERS:", req.headers);
     console.log("BODY:", JSON.stringify(req.body, null, 2));
 
-    // Unwrap common MCP / webhook formats
+    const body = req.body || {};
+
+    // 🔑 Smartwebi-first unwrapping
     const data =
-      req.body?.input ||
-      req.body?.arguments ||
-      req.body?.payload ||
-      req.body ||
-      {};
+      body.customData ||
+      body.input ||
+      body.arguments ||
+      body.payload ||
+      body.triggerData ||
+      body.contact ||
+      body;
 
-    // Accept multiple possible field names
-    const keyword = data.keyword || data.requested_pdf;
-    const teacher_name = data.teacher_name || data.name;
-    const teacher_email = data.teacher_email || data.email;
+    // 🔑 Robust field resolution
+    const keyword =
+      data.keyword ||
+      body.customData?.keyword ||
+      body.customData?.requested_pdf ||
+      body.triggerData?.keyword;
 
-    // Validate (manual, clear errors)
+    const teacher_name =
+      data.teacher_name ||
+      body.customData?.teacher_name ||
+      body.full_name ||
+      body.first_name ||
+      body.contact?.full_name;
+
+    const teacher_email =
+      data.teacher_email ||
+      body.customData?.teacher_email ||
+      body.email ||
+      body.contact?.email;
+
+    console.log("✅ RESOLVED VALUES:", {
+      keyword,
+      teacher_name,
+      teacher_email,
+    });
+
+    // Validation
     if (!keyword || !teacher_name || !teacher_email) {
       return res.status(400).json({
         ok: false,
-        message:
-          "Missing required fields: keyword, teacher_name, teacher_email (or requested_pdf, name, email)",
-        received_keys: Object.keys(data),
-        received_body: req.body,
+        message: "Missing required fields",
+        resolved: {
+          keyword,
+          teacher_name,
+          teacher_email,
+        },
+        hint: "Ensure fields exist in customData",
       });
     }
 
@@ -160,7 +160,7 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       });
     }
 
-    // Email text
+    // Email content
     const subject = `Requested PDF: ${found.pdf_name}`;
     const text =
       `Hi ${teacher_name},\n\n` +
@@ -168,26 +168,26 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       `${found.pdf_name}\n${found.pdf_link}\n\n` +
       `— ESC 17`;
 
-    // Send email
-    await transporter.sendMail({
+    // Send email (Resend)
+    const emailResult = await resend.emails.send({
       from: process.env.EMAIL_FROM,
       to: teacher_email,
       subject,
       text,
     });
 
-    // Response
     return res.json({
       ok: true,
-      message: "PDF request processed",
+      message: "PDF sent successfully",
       keyword,
       pdf_name: found.pdf_name,
+      email_id: emailResult.id,
     });
   } catch (err) {
-    console.log("❌ ERROR:", err);
+    console.error("❌ ERROR:", err);
     return res.status(500).json({
       ok: false,
-      message: err?.message || "Server error",
+      message: err.message || "Server error",
     });
   }
 });
