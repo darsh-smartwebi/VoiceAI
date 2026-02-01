@@ -49,7 +49,7 @@ function findPdfByKeyword(keyword) {
 
 loadPdfTableOnce();
 
-// Optional reload endpoint
+// Reload CSV without restart (optional)
 app.get("/reload", (req, res) => {
   try {
     loadPdfTableOnce();
@@ -60,7 +60,7 @@ app.get("/reload", (req, res) => {
 });
 
 // ==============================
-// 2) Resend Email Client
+// 2) Resend Client
 // ==============================
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -90,7 +90,7 @@ app.get("/mcp", (req, res) => {
 });
 
 // ==============================
-// 4) MCP tool endpoint
+// 4) MCP tool endpoint (FIXED)
 // ==============================
 app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
   try {
@@ -98,26 +98,59 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
     console.log("HEADERS:", req.headers);
     console.log("BODY:", JSON.stringify(req.body, null, 2));
 
+    const body = req.body || {};
+
+    // 🔑 Smartwebi-first unwrapping
     const data =
-      req.body?.input ||
-      req.body?.arguments ||
-      req.body?.payload ||
-      req.body ||
-      {};
+      body.customData ||
+      body.input ||
+      body.arguments ||
+      body.payload ||
+      body.triggerData ||
+      body.contact ||
+      body;
 
-    const keyword = data.keyword || data.requested_pdf;
-    const teacher_name = data.teacher_name || data.name;
-    const teacher_email = data.teacher_email || data.email;
+    // 🔑 Robust field resolution
+    const keyword =
+      data.keyword ||
+      body.customData?.keyword ||
+      body.customData?.requested_pdf ||
+      body.triggerData?.keyword;
 
+    const teacher_name =
+      data.teacher_name ||
+      body.customData?.teacher_name ||
+      body.full_name ||
+      body.first_name ||
+      body.contact?.full_name;
+
+    const teacher_email =
+      data.teacher_email ||
+      body.customData?.teacher_email ||
+      body.email ||
+      body.contact?.email;
+
+    console.log("✅ RESOLVED VALUES:", {
+      keyword,
+      teacher_name,
+      teacher_email,
+    });
+
+    // Validation
     if (!keyword || !teacher_name || !teacher_email) {
       return res.status(400).json({
         ok: false,
-        message:
-          "Missing required fields: keyword, teacher_name, teacher_email",
-        received_keys: Object.keys(data),
+        message: "Missing required fields",
+        resolved: {
+          keyword,
+          teacher_name,
+          teacher_email,
+        },
+        hint: "Ensure fields exist in customData",
       });
     }
 
+    // Find PDF
     const found = findPdfByKeyword(keyword);
     if (!found) {
       return res.status(404).json({
@@ -127,6 +160,7 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       });
     }
 
+    // Email content
     const subject = `Requested PDF: ${found.pdf_name}`;
     const text =
       `Hi ${teacher_name},\n\n` +
@@ -134,8 +168,8 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       `${found.pdf_name}\n${found.pdf_link}\n\n` +
       `— ESC 17`;
 
-    // ✅ Send email via Resend
-    const emailResponse = await resend.emails.send({
+    // Send email (Resend)
+    const emailResult = await resend.emails.send({
       from: process.env.EMAIL_FROM,
       to: teacher_email,
       subject,
@@ -147,7 +181,7 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       message: "PDF sent successfully",
       keyword,
       pdf_name: found.pdf_name,
-      email_id: emailResponse.id,
+      email_id: emailResult.id,
     });
   } catch (err) {
     console.error("❌ ERROR:", err);
