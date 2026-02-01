@@ -3,7 +3,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const fs = require("fs");
 const { parse } = require("csv-parse/sync");
-const axios = require("axios");
+const nodemailer = require("nodemailer");
 
 dotenv.config();
 
@@ -13,16 +13,18 @@ const app = express();
 // 0) Middleware (Smartwebi-proof)
 // ==============================
 app.use(cors());
+
+// Accept JSON even if client sends wrong/missing content-type
 app.use(
   express.json({
-    limit: "2mb",
+    limit: "1mb",
     type: ["application/json", "*/json", "*/*"],
   }),
 );
 app.use(express.urlencoded({ extended: true }));
 
 // ==============================
-// 1) Load CSV ONCE
+// 1) Load CSV ONCE (fast)
 // ==============================
 let PDF_TABLE = [];
 
@@ -57,38 +59,37 @@ app.get("/reload", (req, res) => {
 });
 
 // ==============================
-// 2) Brevo send function
+// 2) Email transporter (465/587 safe)
 // ==============================
-async function sendEmailViaBrevo({ toEmail, toName, subject, text }) {
-  const apiKey = process.env.BREVO_API_KEY;
-  const senderName = process.env.BREVO_SENDER_NAME;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL;
+const smtpPort = Number(process.env.SMTP_PORT || 587);
+const smtpSecure = smtpPort === 465;
 
-  if (!apiKey) throw new Error("BREVO_API_KEY missing");
-  if (!senderName || !senderEmail)
-    throw new Error("BREVO_SENDER_NAME or BREVO_SENDER_EMAIL missing");
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: smtpPort,
+  secure: smtpSecure, // true for 465, false for 587
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
 
-  // Brevo Transactional API endpoint
-  const url = "https://api.brevo.com/v3/smtp/email";
+  // prevent hanging forever
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 15000,
 
-  const payload = {
-    sender: { name: senderName, email: senderEmail },
-    to: [{ email: toEmail, name: toName }],
-    subject,
-    textContent: text,
-  };
+  // force STARTTLS on 587
+  ...(smtpSecure ? {} : { requireTLS: true }),
+});
 
-  const resp = await axios.post(url, payload, {
-    headers: {
-      "api-key": apiKey,
-      "content-type": "application/json",
-      accept: "application/json",
-    },
-    timeout: 15000,
-  });
-
-  return resp.data; // contains messageId etc.
-}
+// verify SMTP at startup
+transporter.verify((err) => {
+  if (err) {
+    console.log("❌ SMTP verify failed:", err.message);
+  } else {
+    console.log("✅ SMTP is ready");
+  }
+});
 
 // ==============================
 // 3) MCP discovery endpoint
@@ -116,37 +117,40 @@ app.get("/mcp", (req, res) => {
 });
 
 // ==============================
-// 4) ONE tool endpoint (reads Smartwebi customData)
+// 4) ONE tool endpoint (Smartwebi-proof payload parsing)
 // ==============================
 app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
   try {
+    // Debug logs (check Render logs)
     console.log("----- INCOMING REQUEST -----");
     console.log("HEADERS:", req.headers);
     console.log("BODY:", JSON.stringify(req.body, null, 2));
 
-    // Smartwebi sends your fields inside customData
+    // Unwrap common MCP / webhook formats
     const data =
-      req.body?.customData ||
       req.body?.input ||
       req.body?.arguments ||
       req.body?.payload ||
       req.body ||
       {};
 
+    // Accept multiple possible field names
     const keyword = data.keyword || data.requested_pdf;
-    const teacher_name =
-      data.teacher_name || data.name || req.body?.full_name || "Teacher";
-    const teacher_email = data.teacher_email || data.email || req.body?.email;
+    const teacher_name = data.teacher_name || data.name;
+    const teacher_email = data.teacher_email || data.email;
 
-    if (!keyword || !teacher_email) {
+    // Validate (manual, clear errors)
+    if (!keyword || !teacher_name || !teacher_email) {
       return res.status(400).json({
         ok: false,
         message:
-          "Missing required fields. Need keyword + teacher_email (and teacher_name recommended).",
+          "Missing required fields: keyword, teacher_name, teacher_email (or requested_pdf, name, email)",
         received_keys: Object.keys(data),
+        received_body: req.body,
       });
     }
 
+    // Find PDF
     const found = findPdfByKeyword(keyword);
     if (!found) {
       return res.status(404).json({
@@ -156,6 +160,7 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       });
     }
 
+    // Email text
     const subject = `Requested PDF: ${found.pdf_name}`;
     const text =
       `Hi ${teacher_name},\n\n` +
@@ -163,33 +168,31 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       `${found.pdf_name}\n${found.pdf_link}\n\n` +
       `— ESC 17`;
 
-    const brevoResp = await sendEmailViaBrevo({
-      toEmail: teacher_email,
-      toName: teacher_name,
+    // Send email
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: teacher_email,
       subject,
       text,
     });
 
+    // Response
     return res.json({
       ok: true,
       message: "PDF request processed",
       keyword,
       pdf_name: found.pdf_name,
-      brevo: brevoResp, // contains messageId, etc.
     });
   } catch (err) {
-    // show Brevo error details if available
-    const detail =
-      err?.response?.data || err?.message || "Server error while sending email";
-    console.log("❌ ERROR:", detail);
-
+    console.log("❌ ERROR:", err);
     return res.status(500).json({
       ok: false,
-      message: typeof detail === "string" ? detail : JSON.stringify(detail),
+      message: err?.message || "Server error",
     });
   }
 });
 
+// ==============================
 app.listen(process.env.PORT || 5050, () => {
-  console.log(`🚀 Server running on port ${process.env.PORT || 5050}`);
+  console.log(`🚀 MCP server running on port ${process.env.PORT || 5050}`);
 });
