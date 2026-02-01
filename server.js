@@ -4,13 +4,24 @@ const dotenv = require("dotenv");
 const fs = require("fs");
 const { parse } = require("csv-parse/sync");
 const nodemailer = require("nodemailer");
-const { z } = require("zod");
 
 dotenv.config();
 
 const app = express();
+
+// ==============================
+// 0) Middleware (Smartwebi-proof)
+// ==============================
 app.use(cors());
-app.use(express.json());
+
+// Accept JSON even if client sends wrong/missing content-type
+app.use(
+  express.json({
+    limit: "1mb",
+    type: ["application/json", "*/json", "*/*"],
+  }),
+);
+app.use(express.urlencoded({ extended: true }));
 
 // ==============================
 // 1) Load CSV ONCE (fast)
@@ -37,7 +48,7 @@ function findPdfByKeyword(keyword) {
 
 loadPdfTableOnce();
 
-// (Optional) reload CSV without restarting server
+// Optional: reload CSV without restarting
 app.get("/reload", (req, res) => {
   try {
     loadPdfTableOnce();
@@ -48,19 +59,30 @@ app.get("/reload", (req, res) => {
 });
 
 // ==============================
-// 2) Email transporter
+// 2) Email transporter (465/587 safe)
 // ==============================
+const smtpPort = Number(process.env.SMTP_PORT || 587);
+const smtpSecure = smtpPort === 465;
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: false,
+  port: smtpPort,
+  secure: smtpSecure, // true for 465, false for 587
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+
+  // prevent hanging forever
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 15000,
+
+  // force STARTTLS on 587
+  ...(smtpSecure ? {} : { requireTLS: true }),
 });
 
-// Optional: verify SMTP at startup (helps debug)
+// verify SMTP at startup
 transporter.verify((err) => {
   if (err) {
     console.log("❌ SMTP verify failed:", err.message);
@@ -95,21 +117,41 @@ app.get("/mcp", (req, res) => {
 });
 
 // ==============================
-// 4) ONE tool endpoint (no chaining)
+// 4) ONE tool endpoint (Smartwebi-proof payload parsing)
 // ==============================
 app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
   try {
-    const schema = z.object({
-      keyword: z.string().min(1),
-      teacher_name: z.string().min(1),
-      teacher_email: z.string().email(),
-    });
+    // Debug logs (check Render logs)
+    console.log("----- INCOMING REQUEST -----");
+    console.log("HEADERS:", req.headers);
+    console.log("BODY:", JSON.stringify(req.body, null, 2));
 
-    const { keyword, teacher_name, teacher_email } = schema.parse(req.body);
+    // Unwrap common MCP / webhook formats
+    const data =
+      req.body?.input ||
+      req.body?.arguments ||
+      req.body?.payload ||
+      req.body ||
+      {};
 
-    // 1) Find PDF from CSV
+    // Accept multiple possible field names
+    const keyword = data.keyword || data.requested_pdf;
+    const teacher_name = data.teacher_name || data.name;
+    const teacher_email = data.teacher_email || data.email;
+
+    // Validate (manual, clear errors)
+    if (!keyword || !teacher_name || !teacher_email) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          "Missing required fields: keyword, teacher_name, teacher_email (or requested_pdf, name, email)",
+        received_keys: Object.keys(data),
+        received_body: req.body,
+      });
+    }
+
+    // Find PDF
     const found = findPdfByKeyword(keyword);
-
     if (!found) {
       return res.status(404).json({
         ok: false,
@@ -118,7 +160,7 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       });
     }
 
-    // 2) Send email with link
+    // Email text
     const subject = `Requested PDF: ${found.pdf_name}`;
     const text =
       `Hi ${teacher_name},\n\n` +
@@ -126,6 +168,7 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       `${found.pdf_name}\n${found.pdf_link}\n\n` +
       `— ESC 17`;
 
+    // Send email
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: teacher_email,
@@ -133,7 +176,7 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       text,
     });
 
-    // 3) Return response (your Voice AI can decide wording)
+    // Response
     return res.json({
       ok: true,
       message: "PDF request processed",
@@ -141,9 +184,10 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       pdf_name: found.pdf_name,
     });
   } catch (err) {
-    return res.status(400).json({
+    console.log("❌ ERROR:", err);
+    return res.status(500).json({
       ok: false,
-      message: err?.message || "Bad Request",
+      message: err?.message || "Server error",
     });
   }
 });
