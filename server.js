@@ -23,17 +23,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // ==============================
 // 1) Load CSV ONCE (fast)
-// CSV columns: keyword,pdf_name,pdf_link
 // ==============================
 let PDF_TABLE = [];
-
-function normalizeName(str) {
-  return (str || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, "") // remove special chars
-    .replace(/\s+/g, " ") // normalize spaces
-    .trim();
-}
 
 function loadPdfTableOnce() {
   const csv = fs.readFileSync("./grade1.csv", "utf8");
@@ -42,28 +33,34 @@ function loadPdfTableOnce() {
     skip_empty_lines: true,
   });
 
-  PDF_TABLE = records.map((r) => {
-    const keyword = (r.keyword || "").trim();
-    const pdf_name = (r.pdf_name || "").trim();
-    const pdf_link = (r.pdf_link || "").trim();
-
-    return {
-      keyword,
-      pdf_name,
-      pdf_link,
-
-      // ✅ precomputed normalized fields for matching
-      normalized_keyword: normalizeName(keyword),
-      normalized_pdf_name: normalizeName(pdf_name),
-    };
-  });
+  PDF_TABLE = records.map((r) => ({
+    // keyword kept only because CSV has it, but we won't use it for search
+    keyword: (r.keyword || "").trim().toLowerCase(),
+    pdf_name: (r.pdf_name || "").trim(),
+    pdf_link: (r.pdf_link || "").trim(),
+  }));
 
   console.log(`✅ Loaded ${PDF_TABLE.length} PDFs from grade1.csv`);
 }
 
+/**
+ * Find PDF by pdf_name (case-insensitive).
+ * Supports:
+ *  - Exact match first
+ *  - Partial "includes" match fallback
+ */
 // ==============================
-// 2) PDF NAME MATCHING (robust)
+// 3) PDF NAME MATCHING (robust)
 // ==============================
+function normalizeName(str) {
+  return (str || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "") // remove special chars
+    .replace(/\s+/g, " ")        // normalize spaces
+    .trim();
+}
+
+
 function scoreMatch(search, candidate) {
   // exact (normalized)
   if (candidate === search) return 1000;
@@ -87,60 +84,51 @@ function scoreMatch(search, candidate) {
   // optional bonus for important terms
   let bonus = 0;
   const important = [
-    "welcome",
-    "letter",
-    "protocol",
-    "internalization",
-    "lesson",
-    "teacher",
-    "foundational",
-    "skills",
-    "consonant",
-    "code",
-    "flip",
-    "book",
-    "chart",
-    "individual",
-    "gk",
-    "3",
-    "pdf",
-  ];
+  // family / communication
+  "family",
+  "welcome",
+  "letter",
+
+  // protocols & instruction
+  "protocol",
+  "internalization",
+  "lesson",
+  "instruction",
+  "teaching",
+  "teacher",
+
+  // literacy / foundational skills
+  "foundational",
+  "skills",
+  "literacy",
+  "phonics",
+  "reading",
+
+  // code-based resources
+  "consonant",
+  "vowel",
+  "code",
+  "chart",
+  "flip",
+  "flipbook",
+
+  // grade / scope
+  "gk",
+  "k",
+  "1",
+  "2",
+  "3",
+
+  // format hints
+  "pdf",
+];
+
 
   for (const w of important) {
     if (search.includes(w) && candidate.includes(w)) bonus += 15;
   }
 
   return Math.round(ratio * 500) + bonus;
-}
-
-/**
- * ✅ Find by keyword first (exact), else fallback to pdf_name fuzzy match.
- * Returns the matched row or null.
- */
-function findPdf(pdfInput) {
-  const search = normalizeName(pdfInput);
-  if (!search) return null;
-
-  // avoid super-vague inputs like "pdf"
-  if (search.length < 4) return null;
-
-  // 1) keyword exact (normalized)
-  for (const row of PDF_TABLE) {
-    if (row.normalized_keyword === search) return row;
-  }
-
-  // 2) keyword contains (optional convenience)
-  for (const row of PDF_TABLE) {
-    if (
-      row.normalized_keyword.includes(search) ||
-      search.includes(row.normalized_keyword)
-    ) {
-      return row;
-    }
-  }
-
-  // 3) Fallback: fuzzy by pdf_name
-  return findPdfByName(pdfInput);
 }
 
 function findPdfByName(pdfName) {
@@ -155,7 +143,8 @@ function findPdfByName(pdfName) {
   let secondBestScore = -1;
 
   for (const row of PDF_TABLE) {
-    const candidate = row.normalized_pdf_name || normalizeName(row.pdf_name);
+    // ✅ use precomputed normalized field
+    const candidate = row.normalized_pdf_name;
     const s = scoreMatch(search, candidate);
 
     if (s > bestScore) {
@@ -180,6 +169,7 @@ function findPdfByName(pdfName) {
   return best;
 }
 
+
 loadPdfTableOnce();
 
 // Reload CSV without restart (optional)
@@ -193,12 +183,12 @@ app.get("/reload", (req, res) => {
 });
 
 // ==============================
-// 3) Resend Client
+// 2) Resend Client
 // ==============================
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ==============================
-// 4) MCP discovery endpoint
+// 3) MCP discovery endpoint
 // ==============================
 app.get("/mcp", (req, res) => {
   res.json({
@@ -206,17 +196,16 @@ app.get("/mcp", (req, res) => {
     version: "1.0.0",
     tools: [
       {
-        name: "send_pdf",
-        description:
-          "Find PDF by keyword or pdf_name (fuzzy) and email it to the teacher.",
+        name: "send_pdf_by_name",
+        description: "Find PDF by PDF name and email it to the teacher.",
         inputSchema: {
           type: "object",
           properties: {
-            requested_pdf: { type: "string" },
+            pdf_name: { type: "string" },
             teacher_name: { type: "string" },
             teacher_email: { type: "string" },
           },
-          required: ["requested_pdf", "teacher_name", "teacher_email"],
+          required: ["pdf_name", "teacher_name", "teacher_email"],
         },
       },
     ],
@@ -224,9 +213,9 @@ app.get("/mcp", (req, res) => {
 });
 
 // ==============================
-// 5) MCP tool endpoint (KEYWORD OR NAME)
+// 4) MCP tool endpoint (BY NAME)
 // ==============================
-app.post("/mcp/tools/send_pdf", async (req, res) => {
+app.post("/mcp/tools/send_pdf_by_name", async (req, res) => {
   try {
     console.log("----- INCOMING REQUEST -----");
     console.log("HEADERS:", req.headers);
@@ -244,17 +233,12 @@ app.post("/mcp/tools/send_pdf", async (req, res) => {
       body.contact ||
       body;
 
-    // ✅ Robust field resolution
-    // user may pass: requested_pdf OR pdf_name OR keyword etc.
-    const requested_pdf =
-      data.requested_pdf ||
-      data.pdf_name ||
+    // ✅ Robust field resolution (BY NAME)
+    // Accept common variants to avoid mapping issues
+    const pdf_name =
       data.keyword ||
-      body.customData?.requested_pdf ||
-      body.customData?.pdf_name ||
       body.customData?.keyword ||
-      body.triggerData?.requested_pdf ||
-      body.triggerData?.pdf_name ||
+      body.customData?.requested_pdf ||
       body.triggerData?.keyword;
 
     const teacher_name =
@@ -275,33 +259,32 @@ app.post("/mcp/tools/send_pdf", async (req, res) => {
       body.contact?.email;
 
     console.log("✅ RESOLVED VALUES:", {
-      requested_pdf,
+      pdf_name,
       teacher_name,
       teacher_email,
     });
 
     // Validation
-    if (!requested_pdf || !teacher_name || !teacher_email) {
+    if (!pdf_name || !teacher_name || !teacher_email) {
       return res.status(400).json({
         ok: false,
         message: "Missing required fields",
         resolved: {
-          requested_pdf,
+          pdf_name,
           teacher_name,
           teacher_email,
         },
-        hint:
-          "Ensure fields exist in customData (requested_pdf, teacher_name, teacher_email)",
+        hint: "Ensure fields exist in customData (pdf_name, teacher_name, teacher_email)",
       });
     }
 
-    // ✅ Find PDF by keyword OR name
-    const found = findPdf(requested_pdf);
+    // Find PDF by NAME
+    const found = findPdfByName(pdf_name);
     if (!found) {
       return res.status(404).json({
         ok: false,
-        message: "No PDF found for that requested_pdf",
-        requested_pdf,
+        message: "No PDF found for that pdf_name",
+        pdf_name,
       });
     }
 
@@ -323,12 +306,10 @@ app.post("/mcp/tools/send_pdf", async (req, res) => {
 
     return res.json({
       ok: true,
-      message: "Queued",
-      matched_by: found.normalized_keyword === normalizeName(requested_pdf) ? "keyword" : "name",
-      keyword: found.keyword,
+      message: "PDF sent successfully",
       pdf_name: found.pdf_name,
       pdf_link: found.pdf_link,
-      email_id: emailResult?.id,
+      email_id: emailResult.id,
     });
   } catch (err) {
     console.error("❌ ERROR:", err);
