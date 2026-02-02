@@ -49,33 +49,109 @@ function loadPdfTableOnce() {
  *  - Exact match first
  *  - Partial "includes" match fallback
  */
+// ==============================
+// 3) PDF NAME MATCHING (robust)
+// ==============================
 function normalizeName(str) {
   return (str || "")
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, "") // ❌ remove special chars like . , - _ /
-    .replace(/\s+/g, " ")        // normalize multiple spaces
+    .replace(/[^a-z0-9\s]/g, "") // remove special chars like . , - _ /
+    .replace(/\s+/g, " ")
     .trim();
 }
 
+function scoreMatch(search, candidate) {
+  // exact (normalized)
+  if (candidate === search) return 1000;
+
+  // substring
+  if (candidate.includes(search)) return 700;
+  if (search.includes(candidate)) return 650;
+
+  // token overlap scoring
+  const sTokens = search.split(" ").filter(Boolean);
+  const cTokens = candidate.split(" ").filter(Boolean);
+  const cSet = new Set(cTokens);
+
+  let hits = 0;
+  for (const t of sTokens) {
+    if (cSet.has(t)) hits++;
+  }
+
+  const ratio = hits / Math.max(1, sTokens.length);
+
+  // bonus for common important terms (optional)
+  let bonus = 0;
+  const important = [
+    "welcome",
+    "letter",
+    "protocol",
+    "internalization",
+    "lesson",
+    "teacher",
+    "foundational",
+    "skills",
+    "gk3",
+    "gk",
+    "3",
+  ];
+  for (const w of important) {
+    if (search.includes(w) && candidate.includes(w)) bonus += 15;
+  }
+
+  return Math.round(ratio * 500) + bonus; // max ~500 + bonus
+}
+
+/**
+ * Robust find-by-name:
+ * - ignores special characters
+ * - works for partial phrases
+ * - avoids wrong matches using:
+ *   1) MIN_SCORE threshold
+ *   2) confidence gap threshold between best and 2nd best
+ */
 function findPdfByName(pdfName) {
   const search = normalizeName(pdfName);
   if (!search) return null;
 
-  // 1) Exact match (normalized)
-  let found =
-    PDF_TABLE.find(
-      (x) => normalizeName(x.pdf_name) === search
-    ) || null;
+  // Avoid super-vague inputs matching something random
+  if (search.length < 4) return null;
 
-  // 2) Partial match (normalized fallback)
-  if (!found) {
-    found =
-      PDF_TABLE.find(
-        (x) => normalizeName(x.pdf_name).includes(search)
-      ) || null;
+  let best = null;
+  let bestScore = -1;
+  let secondBestScore = -1;
+
+  for (const row of PDF_TABLE) {
+    const candidate = normalizeName(row.pdf_name);
+    const s = scoreMatch(search, candidate);
+
+    if (s > bestScore) {
+      secondBestScore = bestScore;
+      bestScore = s;
+      best = row;
+    } else if (s > secondBestScore) {
+      secondBestScore = s;
+    }
   }
 
-  return found;
+  const MIN_SCORE = 140; // reject weak matches
+  const MIN_GAP = 40; // reject ambiguous matches
+
+  if (bestScore < MIN_SCORE) return null;
+
+  // If 2nd best is close, it's ambiguous → return null so caller can ask user to clarify
+  if (secondBestScore !== -1 && bestScore - secondBestScore < MIN_GAP) {
+    console.warn("⚠️ Ambiguous PDF match", {
+      input: pdfName,
+      normalized: search,
+      bestScore,
+      secondBestScore,
+      bestPdf: best?.pdf_name,
+    });
+    return null;
+  }
+
+  return best;
 }
 
 
