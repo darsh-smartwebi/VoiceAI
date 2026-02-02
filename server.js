@@ -55,10 +55,11 @@ function loadPdfTableOnce() {
 function normalizeName(str) {
   return (str || "")
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, "") // remove special chars like . , - _ /
-    .replace(/\s+/g, " ")
+    .replace(/[^a-z0-9\s]/g, "") // remove special chars
+    .replace(/\s+/g, " ")        // normalize spaces
     .trim();
 }
+
 
 function scoreMatch(search, candidate) {
   // exact (normalized)
@@ -80,7 +81,7 @@ function scoreMatch(search, candidate) {
 
   const ratio = hits / Math.max(1, sTokens.length);
 
-  // bonus for common important terms (optional)
+  // optional bonus for important terms
   let bonus = 0;
   const important = [
     "welcome",
@@ -91,30 +92,28 @@ function scoreMatch(search, candidate) {
     "teacher",
     "foundational",
     "skills",
-    "gk3",
+    "consonant",
+    "code",
+    "flip",
+    "book",
+    "chart",
+    "individual",
     "gk",
     "3",
   ];
+
   for (const w of important) {
     if (search.includes(w) && candidate.includes(w)) bonus += 15;
   }
 
-  return Math.round(ratio * 500) + bonus; // max ~500 + bonus
+  return Math.round(ratio * 500) + bonus;
 }
 
-/**
- * Robust find-by-name:
- * - ignores special characters
- * - works for partial phrases
- * - avoids wrong matches using:
- *   1) MIN_SCORE threshold
- *   2) confidence gap threshold between best and 2nd best
- */
 function findPdfByName(pdfName) {
   const search = normalizeName(pdfName);
   if (!search) return null;
 
-  // Avoid super-vague inputs matching something random
+  // avoid super-vague inputs like "pdf"
   if (search.length < 4) return null;
 
   let best = null;
@@ -122,7 +121,8 @@ function findPdfByName(pdfName) {
   let secondBestScore = -1;
 
   for (const row of PDF_TABLE) {
-    const candidate = normalizeName(row.pdf_name);
+    // ✅ use precomputed normalized field
+    const candidate = row.normalized_pdf_name;
     const s = scoreMatch(search, candidate);
 
     if (s > bestScore) {
@@ -134,20 +134,13 @@ function findPdfByName(pdfName) {
     }
   }
 
-  const MIN_SCORE = 140; // reject weak matches
-  const MIN_GAP = 40; // reject ambiguous matches
+  const MIN_SCORE = 140;
+  const MIN_GAP = 40;
 
   if (bestScore < MIN_SCORE) return null;
 
-  // If 2nd best is close, it's ambiguous → return null so caller can ask user to clarify
+  // reject ambiguous matches
   if (secondBestScore !== -1 && bestScore - secondBestScore < MIN_GAP) {
-    console.warn("⚠️ Ambiguous PDF match", {
-      input: pdfName,
-      normalized: search,
-      bestScore,
-      secondBestScore,
-      bestPdf: best?.pdf_name,
-    });
     return null;
   }
 
