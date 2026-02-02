@@ -26,32 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 // ==============================
 let PDF_TABLE = [];
 
-function loadPdfTableOnce() {
-  const csv = fs.readFileSync("./grade1.csv", "utf8");
-  const records = parse(csv, {
-    columns: true,
-    skip_empty_lines: true,
-  });
-
-  PDF_TABLE = records.map((r) => ({
-    // keyword kept only because CSV has it, but we won't use it for search
-    keyword: (r.keyword || "").trim().toLowerCase(),
-    pdf_name: (r.pdf_name || "").trim(),
-    pdf_link: (r.pdf_link || "").trim(),
-  }));
-
-  console.log(`✅ Loaded ${PDF_TABLE.length} PDFs from grade1.csv`);
-}
-
-/**
- * Find PDF by pdf_name (case-insensitive).
- * Supports:
- *  - Exact match first
- *  - Partial "includes" match fallback
- */
-// ==============================
-// 3) PDF NAME MATCHING (robust)
-// ==============================
+// Normalize: remove special chars like . , - _ / etc
 function normalizeName(str) {
   return (str || "")
     .toLowerCase()
@@ -60,6 +35,34 @@ function normalizeName(str) {
     .trim();
 }
 
+function loadPdfTableOnce() {
+  const csv = fs.readFileSync("./grade1.csv", "utf8");
+  const records = parse(csv, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  });
+
+  PDF_TABLE = records.map((r) => {
+    const pdf_name = (r.pdf_name || "").trim();
+    const normalized_pdf_name = normalizeName(pdf_name);
+    const tokens = normalized_pdf_name.split(" ").filter(Boolean);
+
+    return {
+      keyword: (r.keyword || "").trim(), // present in CSV, but NOT used for matching
+      pdf_name,
+      pdf_link: (r.pdf_link || "").trim(),
+
+      // ✅ precomputed fields for fast matching
+      normalized_pdf_name,
+      tokens,
+    };
+  });
+
+  console.log(`✅ Loaded ${PDF_TABLE.length} PDFs from grade1.csv`);
+}
+
+loadPdfTableOnce();
 
 function scoreMatch(search, candidate) {
   // exact (normalized)
@@ -146,9 +149,6 @@ function findPdfByName(pdfName) {
 
   return best;
 }
-
-
-loadPdfTableOnce();
 
 // Reload CSV without restart (optional)
 app.get("/reload", (req, res) => {
