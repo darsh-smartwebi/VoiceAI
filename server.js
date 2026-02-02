@@ -49,25 +49,35 @@ function loadPdfTableOnce() {
  *  - Exact match first
  *  - Partial "includes" match fallback
  */
+function normalizeName(str) {
+  return (str || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "") // ❌ remove special chars like . , - _ /
+    .replace(/\s+/g, " ")        // normalize multiple spaces
+    .trim();
+}
+
 function findPdfByName(pdfName) {
-  const search = (pdfName || "").trim().toLowerCase();
+  const search = normalizeName(pdfName);
   if (!search) return null;
 
-  // 1) Exact match
+  // 1) Exact match (normalized)
   let found =
-    PDF_TABLE.find((x) => (x.pdf_name || "").trim().toLowerCase() === search) ||
-    null;
+    PDF_TABLE.find(
+      (x) => normalizeName(x.pdf_name) === search
+    ) || null;
 
-  // 2) Partial match (fallback)
+  // 2) Partial match (normalized fallback)
   if (!found) {
     found =
-      PDF_TABLE.find((x) =>
-        (x.pdf_name || "").trim().toLowerCase().includes(search),
+      PDF_TABLE.find(
+        (x) => normalizeName(x.pdf_name).includes(search)
       ) || null;
   }
 
   return found;
 }
+
 
 loadPdfTableOnce();
 
