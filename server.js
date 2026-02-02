@@ -83,6 +83,7 @@ function scoreMatch(search, candidate) {
   // bonus for common important terms (optional)
   let bonus = 0;
   const important = [
+    // Common
     "welcome",
     "letter",
     "protocol",
@@ -91,10 +92,33 @@ function scoreMatch(search, candidate) {
     "teacher",
     "foundational",
     "skills",
-    "gk3",
+
+    // Family Welcome Letter
+    "family",
+
+    // GK / Grade
     "gk",
     "3",
+    "grade",
+
+    // Foundational Skills Protocol
+    "foundational",
+    "skills",
+    "internalization",
+    "protocol",
+
+    // Consonant Code Flip Book
+    "consonant",
+    "code",
+    "flip",
+    "book",
+
+    // Individual Code Chart
+    "individual",
+    "chart",
+    "code",
   ];
+
   for (const w of important) {
     if (search.includes(w) && candidate.includes(w)) bonus += 15;
   }
@@ -153,7 +177,6 @@ function findPdfByName(pdfName) {
 
   return best;
 }
-
 
 loadPdfTableOnce();
 
