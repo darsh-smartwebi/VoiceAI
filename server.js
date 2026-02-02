@@ -34,6 +34,7 @@ function loadPdfTableOnce() {
   });
 
   PDF_TABLE = records.map((r) => ({
+    // keyword kept only because CSV has it, but we won't use it for search
     keyword: (r.keyword || "").trim().toLowerCase(),
     pdf_name: (r.pdf_name || "").trim(),
     pdf_link: (r.pdf_link || "").trim(),
@@ -42,9 +43,30 @@ function loadPdfTableOnce() {
   console.log(`✅ Loaded ${PDF_TABLE.length} PDFs from grade1.csv`);
 }
 
-function findPdfByKeyword(keyword) {
-  const key = (keyword || "").trim().toLowerCase();
-  return PDF_TABLE.find((x) => x.keyword === key) || null;
+/**
+ * Find PDF by pdf_name (case-insensitive).
+ * Supports:
+ *  - Exact match first
+ *  - Partial "includes" match fallback
+ */
+function findPdfByName(pdfName) {
+  const search = (pdfName || "").trim().toLowerCase();
+  if (!search) return null;
+
+  // 1) Exact match
+  let found =
+    PDF_TABLE.find((x) => (x.pdf_name || "").trim().toLowerCase() === search) ||
+    null;
+
+  // 2) Partial match (fallback)
+  if (!found) {
+    found =
+      PDF_TABLE.find((x) =>
+        (x.pdf_name || "").trim().toLowerCase().includes(search),
+      ) || null;
+  }
+
+  return found;
 }
 
 loadPdfTableOnce();
@@ -73,16 +95,16 @@ app.get("/mcp", (req, res) => {
     version: "1.0.0",
     tools: [
       {
-        name: "send_pdf_by_keyword",
-        description: "Find PDF by keyword and email it to the teacher.",
+        name: "send_pdf_by_name",
+        description: "Find PDF by PDF name and email it to the teacher.",
         inputSchema: {
           type: "object",
           properties: {
-            keyword: { type: "string" },
+            pdf_name: { type: "string" },
             teacher_name: { type: "string" },
             teacher_email: { type: "string" },
           },
-          required: ["keyword", "teacher_name", "teacher_email"],
+          required: ["pdf_name", "teacher_name", "teacher_email"],
         },
       },
     ],
@@ -90,9 +112,9 @@ app.get("/mcp", (req, res) => {
 });
 
 // ==============================
-// 4) MCP tool endpoint (FIXED)
+// 4) MCP tool endpoint (BY NAME)
 // ==============================
-app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
+app.post("/mcp/tools/send_pdf_by_name", async (req, res) => {
   try {
     console.log("----- INCOMING REQUEST -----");
     console.log("HEADERS:", req.headers);
@@ -110,53 +132,62 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
       body.contact ||
       body;
 
-    // 🔑 Robust field resolution
-    const keyword =
-      data.keyword ||
-      body.customData?.keyword ||
+    // ✅ Robust field resolution (BY NAME)
+    // Accept common variants to avoid mapping issues
+    const pdf_name =
+      data.pdf_name ||
+      data.pdfName ||
+      data.requested_pdf ||
+      body.customData?.pdf_name ||
+      body.customData?.pdfName ||
       body.customData?.requested_pdf ||
-      body.triggerData?.keyword;
+      body.triggerData?.pdf_name ||
+      body.triggerData?.requested_pdf;
 
     const teacher_name =
       data.teacher_name ||
+      data.teacherName ||
       body.customData?.teacher_name ||
+      body.customData?.teacherName ||
       body.full_name ||
       body.first_name ||
       body.contact?.full_name;
 
     const teacher_email =
       data.teacher_email ||
+      data.teacherEmail ||
       body.customData?.teacher_email ||
+      body.customData?.teacherEmail ||
       body.email ||
       body.contact?.email;
 
     console.log("✅ RESOLVED VALUES:", {
-      keyword,
+      pdf_name,
       teacher_name,
       teacher_email,
     });
 
     // Validation
-    if (!keyword || !teacher_name || !teacher_email) {
+    if (!pdf_name || !teacher_name || !teacher_email) {
       return res.status(400).json({
         ok: false,
         message: "Missing required fields",
         resolved: {
-          keyword,
+          pdf_name,
           teacher_name,
           teacher_email,
         },
-        hint: "Ensure fields exist in customData",
+        hint: "Ensure fields exist in customData (pdf_name, teacher_name, teacher_email)",
       });
     }
 
-    // Find PDF
-    const found = findPdfByKeyword(keyword);
+    // Find PDF by NAME
+    const found = findPdfByName(pdf_name);
     if (!found) {
       return res.status(404).json({
         ok: false,
-        message: "No PDF found for that keyword",
-        keyword,
+        message: "No PDF found for that pdf_name",
+        pdf_name,
       });
     }
 
@@ -179,8 +210,8 @@ app.post("/mcp/tools/send_pdf_by_keyword", async (req, res) => {
     return res.json({
       ok: true,
       message: "PDF sent successfully",
-      keyword,
       pdf_name: found.pdf_name,
+      pdf_link: found.pdf_link,
       email_id: emailResult.id,
     });
   } catch (err) {
