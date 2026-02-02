@@ -135,14 +135,10 @@ app.post("/mcp/tools/send_pdf_by_name", async (req, res) => {
     // ✅ Robust field resolution (BY NAME)
     // Accept common variants to avoid mapping issues
     const pdf_name =
-      data.pdf_name ||
-      data.pdfName ||
-      data.requested_pdf ||
-      body.customData?.pdf_name ||
-      body.customData?.pdfName ||
+      data.keyword ||
+      body.customData?.keyword ||
       body.customData?.requested_pdf ||
-      body.triggerData?.pdf_name ||
-      body.triggerData?.requested_pdf;
+      body.triggerData?.keyword;
 
     const teacher_name =
       data.teacher_name ||
