@@ -352,8 +352,10 @@ app.post("/mcp/tools/send_pdf_by_name", async (req, res) => {
     }
 
     // Email content
+    // Email content
     const subject = `Requested PDF: ${found.pdf_name}`;
-    const text = `<!DOCTYPE html>
+
+    const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -364,33 +366,29 @@ app.post("/mcp/tools/send_pdf_by_name", async (req, res) => {
     <tr>
       <td align="center" style="padding: 40px 20px;">
         <table role="presentation" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
           <tr>
             <td style="padding: 32px 40px 24px; border-bottom: 3px solid #2563eb;">
               <h1 style="margin: 0; color: #1f2937; font-size: 24px; font-weight: 600;">Hi ${teacher_name},</h1>
             </td>
           </tr>
-          
-          <!-- Body -->
+
           <tr>
             <td style="padding: 32px 40px;">
               <p style="margin: 0 0 24px; color: #4b5563; font-size: 16px; line-height: 1.6;">
                 Here is your requested document:
               </p>
-              
-              <!-- Document Card -->
+
               <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px; margin-bottom: 24px;">
                 <p style="margin: 0 0 12px; color: #1f2937; font-size: 16px; font-weight: 600;">
                   📄 ${found.pdf_name}
                 </p>
-                <a href="${found.pdf_link}" style="display: inline-block; color: #2563eb; text-decoration: none; font-size: 14px; font-weight: 500; padding: 10px 20px; background-color: #dbeafe; border-radius: 4px; transition: background-color 0.2s;">
+                <a href="${found.pdf_link}" style="display: inline-block; color: #2563eb; text-decoration: none; font-size: 14px; font-weight: 500; padding: 10px 20px; background-color: #dbeafe; border-radius: 4px;">
                   Document Link →
                 </a>
               </div>
             </td>
           </tr>
-          
-          <!-- Footer -->
+
           <tr>
             <td style="padding: 24px 40px 32px; border-top: 1px solid #e5e7eb;">
               <p style="margin: 0; color: #6b7280; font-size: 14px; font-weight: 500;">
@@ -399,8 +397,7 @@ app.post("/mcp/tools/send_pdf_by_name", async (req, res) => {
             </td>
           </tr>
         </table>
-        
-        <!-- Footer Note -->
+
         <p style="margin: 20px 0 0; color: #9ca3af; font-size: 12px; text-align: center;">
           This is an automated message from Smart School
         </p>
@@ -415,7 +412,8 @@ app.post("/mcp/tools/send_pdf_by_name", async (req, res) => {
       from: process.env.EMAIL_FROM,
       to: teacher_email,
       subject,
-      text,
+      html,
+      text: `Hi ${teacher_name}, here is your document: ${found.pdf_link}`,
     });
 
     return res.json({
