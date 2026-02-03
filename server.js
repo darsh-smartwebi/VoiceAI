@@ -83,41 +83,97 @@ function scoreMatch(search, candidate) {
   // bonus for common important terms (optional)
   let bonus = 0;
   const important = [
-    // Common
-    "welcome",
-    "letter",
-    "protocol",
-    "internalization",
-    "lesson",
-    "teacher",
-    "foundational",
-    "skills",
+  // ===== Common / Generic =====
+  "welcome",
+  "letter",
+  "family",
+  "guide",
+  "program",
+  "implementation",
+  "protocol",
+  "internalization",
+  "lesson",
+  "unit",
+  "teacher",
+  "coach",
+  "student",
+  "reading",
+  "independent",
+  "observation",
+  "navigation",
+  "component",
+  "pacing",
+  "scope",
+  "sequence",
 
-    // Family Welcome Letter
-    "family",
+  // ===== Grade / Level =====
+  "gk",
+  "k",
+  "k-2",
+  "k-3",
+  "k-5",
+  "grade",
 
-    // GK / Grade
-    "gk",
-    "3",
-    "grade",
+  // ===== Foundational Skills =====
+  "foundational",
+  "skills",
+  "fs",
+  "activity",
+  "big",
+  "reader",
+  "digital",
+  "visuals",
+  "components",
+  "support",
 
-    // Foundational Skills Protocol
-    "foundational",
-    "skills",
-    "internalization",
-    "protocol",
+  // ===== Phonics / Code =====
+  "consonant",
+  "vowel",
+  "code",
+  "flip",
+  "book",
+  "chart",
+  "individual",
+  "spelling",
+  "cards",
+  "letter",
+  "image",
 
-    // Consonant Code Flip Book
-    "consonant",
-    "code",
-    "flip",
-    "book",
+  // ===== RLA =====
+  "rla",
 
-    // Individual Code Chart
-    "individual",
-    "chart",
-    "code",
-  ];
+  // ===== Units =====
+  "unit",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+
+  // ===== FS Levels =====
+  "fs1",
+  "fs2",
+  "fs3",
+  "fs4",
+  "fs5",
+  "fs6",
+  "fs7",
+
+  // ===== Content Types =====
+  "activity",
+  "reader",
+  "guide",
+  "flip",
+  "cards",
+  "visuals",
+  "book",
+];
+
 
   for (const w of important) {
     if (search.includes(w) && candidate.includes(w)) bonus += 15;
