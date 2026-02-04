@@ -375,7 +375,7 @@ app.post("/mcp/tools/send_pdf_by_name", async (req, res) => {
           <tr>
             <td style="padding: 32px 40px;">
               <p style="margin: 0 0 24px; color: #4b5563; font-size: 16px; line-height: 1.6;">
-                Here is your requested document:
+                I’m sharing the document you requested from Smart School.
               </p>
 
               <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px; margin-bottom: 24px;">
