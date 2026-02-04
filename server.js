@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const grade1Routes = require("./grades/grade1Routes");
+const gradekRoutes=require('./grades/gradekRoutes');
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use(
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/grade1", grade1Routes);
+app.use("/gradek",gradekRoutes);
 
 app.listen(process.env.PORT || 5050, () => {
   console.log(`🚀 MCP server running on port ${process.env.PORT || 5050}`);
