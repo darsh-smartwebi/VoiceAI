@@ -156,6 +156,65 @@ function scoreMatch(search, candidate) {
     "cards",
     "visuals",
     "book",
+
+    // ===== Math / Course Level =====
+    "math",
+    "course",
+    "course guide",
+    "teacher edition",
+    "student edition",
+    "grade 1",
+    "k-5 math",
+
+    // ===== Program / Resources =====
+    "program resource",
+    "component navigation",
+    "navigation guide",
+    "family guide",
+    "implementation guide",
+    "program guide",
+    "manipulatives",
+    "manipulatives kit",
+    "adsy",
+    "additional days",
+    "school year",
+
+    // ===== Modules =====
+    "module",
+    "module 1",
+    "module 2",
+    "module 3",
+    "module 4",
+    "module 5",
+    "module 6",
+
+    // ===== Learning Types =====
+    "learn",
+    "practice",
+    "succeed",
+
+    // ===== Math Concepts =====
+    "sums",
+    "differences",
+    "addition",
+    "subtraction",
+    "within 10",
+    "within 20",
+    "to 40",
+    "to 100",
+    "place value",
+    "comparison",
+    "ordering",
+    "comparing",
+    "numbers",
+    "length",
+    "measurement",
+    "shapes",
+    "composing",
+    "partitioning",
+    "income",
+    "understanding",
+
   ];
 
   for (const w of important) {
