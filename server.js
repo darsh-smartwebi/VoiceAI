@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const grade1Routes = require("./grades/grade1Routes");
 const gradekRoutes = require("./grades/gradekRoutes");
 const grade2Routes = require("./grades/grade2Routes");
+const grade4Routes = require("./grades/grade4Routes");
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/grade1", grade1Routes);
 app.use("/gradek", gradekRoutes);
 app.use("/grade2", grade2Routes);
+app.use("/grade4", grade4Routes);
 
 app.listen(process.env.PORT || 5050, () => {
   console.log(`🚀 MCP server running on port ${process.env.PORT || 5050}`);
