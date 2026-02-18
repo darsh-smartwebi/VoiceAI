@@ -66,7 +66,7 @@ function scoreMatch(search, candidate) {
 
   // bonus for common important terms (optional)
   let bonus = 0;
-  const importantG4 = [
+  const important = [
     "g4",
     "k-5",
     "math",
