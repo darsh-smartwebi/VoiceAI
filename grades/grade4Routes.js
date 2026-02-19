@@ -67,79 +67,199 @@ function scoreMatch(search, candidate) {
   // bonus for common important terms (optional)
   let bonus = 0;
   const important = [
+    // Grade / Band Identifiers
     "g4",
-    "k-5",
-    "math",
-    "rla",
     "grade 4",
+    "fourth grade",
+    "k-5",
+    "k5",
+    "math",
+    "mathematics",
+    "rla",
 
     // Editions
     "student edition",
     "teacher edition",
+    "student",
+    "teacher",
 
-    // Guides
+    // ADSY
+    "additional days school year",
+    "adsy",
+
+    // Core Guides (Math + RLA)
     "course guide",
     "family guide",
+    "family guides",
     "component navigation guide",
     "program implementation guide",
+    "program and implementation guide",
+    "implementation guide",
     "independent reading guide",
     "teacher guide",
+    "manipulatives kit",
 
-    // Learning Types
+    // Learning Types (Math Series)
     "learn",
     "practice",
     "succeed",
 
-    // Math Concepts
+    // Core Math Topics / Phrases from titles
     "place value",
     "rounding",
+    "place value rounding",
     "algorithms",
+    "algorithms for addition and subtraction",
     "addition",
     "subtraction",
+    "addition and subtraction",
+
     "unit conversions",
+    "unit conversion",
     "metric",
+    "metric measurements",
+    "measurements",
+    "unit conversions and problem solving",
+    "problem solving",
+    "problem-solving",
+    "problem solving with metric measurements",
+
+    "multi digit",
+    "multi-digit",
+    "multi - digit",
+    "multi digit multiplication and division",
     "multiplication",
     "division",
+    "multiplication and division",
+
     "angle",
+    "angle measure",
     "plane figures",
+
     "fraction",
+    "fractions",
+    "fraction equivalence",
     "equivalence",
     "ordering",
     "operations",
+    "fraction equivalence ordering and operations",
+
     "decimals",
+    "introduction to decimals",
     "financial literacy",
+    "decimals and financial literacy",
+
+    "exploring measurement",
     "measurement",
+    "exploring measurement with multiplication and data",
     "data",
 
-    // RLA Content
+    // RLA / Bluebonnet
+    "bluebonnet learning",
     "anthology",
+    "fluency supplement",
     "fluency",
+    "pacing",
+    "scope",
+    "sequence",
+    "pacing and scope",
+    "pacing and scope & sequence",
+    "pacing and scope and sequence",
+    "pacing scope and sequence guide",
     "lesson internalization",
+    "lesson internalization protocol",
     "unit internalization",
+    "unit internalization protocol",
     "trade books",
+    "observation tool",
     "observation",
+    "welcome letter",
+    "family welcome letter",
 
-    // Unit Resources
+    // Roles (Protocols)
+    "coach",
+    "coaches",
+    "teacher",
+    "teachers",
+
+    // Unit Resources (structure + common items)
+    "unit",
+    "unit 1",
+    "unit 2",
+    "unit 3",
+    "unit 4",
+    "unit 5",
+    "unit 6",
+    "unit 7",
+    "unit 8",
+    "unit 9",
+    "unit 10",
+
     "activity book",
+    "digital components",
+    "digital components visuals",
     "digital visuals",
+    "visuals",
+
     "family support letter",
+    "family support letter wcag",
+    "wcag",
+
     "essential questions",
+    "essential questions and prompts",
     "prompts",
+
     "reader",
+    "reader information",
     "image cards",
     "exit ticket",
 
-    // Eureka / Media
+    // Eureka / Special Unit 2 Assets
     "eureka",
+    "eureka lab stickers",
     "lab stickers",
+    "eureka invention cards",
     "invention cards",
+    "eureka inventor cards",
     "inventor cards",
+    "eureka kit contents",
     "kit contents",
+    "eureka lightbulb",
+    "lightbulb",
+    "eureka wedges",
+    "wedges",
+    "eureka wheel of invention",
+    "wheel of invention",
+    "quiet and applause",
+    "applause",
+
+    // Judges Notes (PDF + MP3 variations)
     "judge notes",
+    "judge note",
+    "judges notes",
+
+    // Digital / Media Assets
     "opening",
-    "video scripts",
-    "video",
+    "opening audio",
     "audio",
+    "video",
+    "video scripts",
+    "scripts",
+    "image of the day",
+    "dancing judges",
+    "welcome to eureka",
+    "why we invent",
+    "man on the street",
+    "simple machines",
+    "failure",
+    "good pitch bad pitch",
+    "irate edison",
+    "edison",
+    "eureka is renewed",
+
+    // Language / Variants
+    "english",
+    "eng",
   ];
 
   for (const w of important) {

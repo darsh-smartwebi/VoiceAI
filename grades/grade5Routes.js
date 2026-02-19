@@ -67,73 +67,134 @@ function scoreMatch(search, candidate) {
   // bonus for common important terms (optional)
   let bonus = 0;
   const important = [
+    // Grade / Band Identifiers
     "g5",
     "grade 5",
+    "fifth grade",
     "k-5",
+    "k5",
     "math",
+    "mathematics",
     "rla",
 
     // Editions
     "student edition",
     "teacher edition",
+    "student",
+    "teacher",
 
-    // Guides
+    // Core Guides (Math + RLA)
     "course guide",
     "family guide",
+    "family guides",
     "component navigation guide",
     "program implementation guide",
+    "program and implementation guide",
+    "implementation guide",
     "independent reading guide",
     "teacher guide",
+    "manipulatives kit",
 
-    // Learning Types
+    // ADSY
+    "additional days school year",
+    "adsy",
+
+    // Learning Types (Math Series)
     "learn",
     "practice",
     "succeed",
 
-    // Math Concepts
+    // Core Math Topics / Phrases from titles
     "place value",
     "decimals",
+    "place value and decimals",
     "multi digit",
+    "multi-digit",
     "whole number",
+    "whole numbers",
+    "multi digit whole number",
     "decimal operations",
+    "whole number and decimal operations",
     "addition",
     "subtraction",
     "multiplication",
     "division",
+    "addition and subtraction",
+    "multiplication and division",
+    "addition and subtraction of fractions",
+    "multiplication and division of fractions",
     "fractions",
     "volume",
     "area",
+    "volume and area",
+    "addition and multiplication with volume and area",
     "coordinate plane",
     "data",
     "problem solving",
+    "problem-solving",
+    "problem solving with the coordinate plane and data",
+    "coordinate plane and data",
 
-    // RLA Content
+    // RLA / Bluebonnet
+    "bluebonnet learning",
     "anthology",
     "fluency supplement",
+    "pacing scope and sequence",
     "pacing",
     "scope",
     "sequence",
     "lesson internalization",
+    "lesson internalization protocol",
     "unit internalization",
+    "unit internalization protocol",
     "trade books",
     "observation tool",
     "welcome letter",
+    "family welcome letter",
 
-    // Unit Resources
+    // Roles (Protocols)
+    "coach",
+    "coaches",
+    "teacher",
+    "teachers",
+
+    // Unit Resources (structure + common items)
     "unit",
+    "unit 1",
+    "unit 2",
+    "unit 3",
+    "unit 4",
+    "unit 5",
+    "unit 6",
+    "unit 7",
+    "unit 8",
+    "unit 9",
+    "unit 10",
+
     "activity book",
     "digital components",
+    "digital components visuals",
     "visuals",
+    "digital components puck",
+    "puck",
+
     "family support letter",
     "essential questions",
+    "essential questions and prompts",
     "prompts",
+
     "reader",
     "reader information",
+
     "character cards",
     "setting cards",
     "emoji cards",
     "image cards",
     "exit ticket",
+
+    // Language variants in titles
+    "english",
+    "english family support letter",
   ];
 
   for (const w of important) {
