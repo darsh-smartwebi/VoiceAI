@@ -67,63 +67,140 @@ function scoreMatch(search, candidate) {
   // bonus for common important terms (optional)
   let bonus = 0;
   const important = [
+    // Grade Identifiers
     "g6",
     "grade 6",
     "sixth grade",
+    "sixth-grade",
+    "sixth",
     "secondary",
     "math",
+    "mathematics",
 
-    // Core Documents
+    // Core Planning Documents
     "topic pacing guides",
+    "topic pacing guide",
+    "pacing guides",
+    "pacing guide",
     "pacing",
+    "scope and sequence",
     "scope",
     "sequence",
-    "standards overview",
-    "teks summary",
-    "elps summary",
-    "yag",
+    "150 day",
+    "165 day",
     "150-day",
     "165-day",
+    "yag",
+    "year at a glance",
+    "standards overview",
+    "teks summary",
+    "teks",
+    "elps summary",
+    "elps",
 
-    // Guides & Materials
+    // Reflection & Analysis
+    "assessment reflection",
+    "student work analysis",
+    "student work analysis protocol",
+    "analysis protocol",
+
+    // Family & Materials
     "family guides",
+    "family guide",
     "materials list",
     "materials guide",
     "content organization",
+    "content organization document",
+    "program implementation",
     "program implementation guide",
     "course guide",
     "course implementation",
-    "glossary",
+    "course and implementation guide",
 
-    // Protocols
+    // Internalization Protocols
     "lesson internalization",
+    "lesson internalization protocol",
     "module internalization",
     "topic internalization",
-    "student work analysis",
+    "module and topic internalization",
+    "module and topic internalization guide",
+    "module and topic internalization protocol",
+    "internalization guide",
+    "internalization protocol",
+
+    // Roles
+    "coach",
+    "coaches",
+    "teacher",
+    "teachers",
+
+    // Observation
     "observation tool",
-    "assessment reflection",
 
     // Instructional Tools
     "problem solving",
+    "problem-solving",
+    "problem solving model",
     "problem-solving model",
     "graphic organizer",
     "skills practice",
 
+    // Glossary
+    "glossary",
+    "student glossary",
+    "teacher glossary",
+
     // Editions
     "student edition",
     "teacher edition",
+    "student",
+    "teacher",
+
+    // Course Documents
+    "student edition course guide",
+    "teacher edition course guide",
+    "teacher edition course and implementation guide",
 
     // Structure
+    "volume",
+    "vol",
     "volume 1",
     "volume 2",
     "vol 1",
     "vol 2",
+    "v1",
+    "v2",
+
+    // Modules
     "module",
     "module 1",
     "module 2",
     "module 3",
     "module 4",
     "module 5",
+    "m1",
+    "m2",
+    "m3",
+    "m4",
+    "m5",
+
+    // Combined Student Editions
+    "student edition volume 1 module 1",
+    "student edition volume 1 module 2",
+    "student edition volume 1 module 3",
+    "student edition volume 2 module 4",
+    "student edition volume 2 module 5",
+    "student edition volume 1",
+    "student edition volume 2",
+
+    // Combined Teacher Editions
+    "teacher edition volume 1 module 1",
+    "teacher edition volume 1 module 2",
+    "teacher edition volume 1 module 3",
+    "teacher edition volume 2 module 4",
+    "teacher edition volume 2 module 5",
+    "teacher edition volume 1",
+    "teacher edition volume 2",
   ];
 
   for (const w of important) {
